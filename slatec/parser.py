@@ -43,7 +43,7 @@ class Parser:
         self._expect_symbol("(")
         value = self._parse_expr()
         self._expect_symbol(")")
-        return PrintlnStmt(StringLiteral(value))
+        return PrintlnStmt(value)
 
     def _parse_expr(self):
         expr = self._parse_primary()
