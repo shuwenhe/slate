@@ -8,11 +8,6 @@ class Expr:
 
 
 @dataclass(frozen=True)
-class StringLiteral:
-    value: str
-
-
-@dataclass(frozen=True)
 class IntLiteral(Expr):
     value: int
 
@@ -30,14 +25,48 @@ class BinaryExpr(Expr):
 
 
 @dataclass(frozen=True)
-class PrintlnStmt:
+class NameExpr(Expr):
+    name: str
+
+
+@dataclass(frozen=True)
+class RangeExpr(Expr):
+    start: Expr
+    end: Expr
+
+
+class Stmt:
+    pass
+
+
+@dataclass(frozen=True)
+class PrintlnStmt(Stmt):
     value: Expr
+
+
+@dataclass(frozen=True)
+class LetStmt(Stmt):
+    name: str
+    value: Expr
+
+
+@dataclass(frozen=True)
+class AssignStmt(Stmt):
+    name: str
+    value: Expr
+
+
+@dataclass(frozen=True)
+class ForStmt(Stmt):
+    name: str
+    iterable: RangeExpr
+    body: list[Stmt]
 
 
 @dataclass(frozen=True)
 class FunctionDecl:
     name: str
-    body: list[PrintlnStmt]
+    body: list[Stmt]
 
 
 @dataclass(frozen=True)

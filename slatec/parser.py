@@ -2,7 +2,19 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from slatec.ast import BinaryExpr, FunctionDecl, IntLiteral, PrintlnStmt, SourceFile, StringExpr
+from slatec.ast import (
+    AssignStmt,
+    BinaryExpr,
+    ForStmt,
+    FunctionDecl,
+    IntLiteral,
+    LetStmt,
+    NameExpr,
+    PrintlnStmt,
+    RangeExpr,
+    SourceFile,
+    StringExpr,
+)
 from slatec.lexer import Token
 
 
@@ -31,12 +43,33 @@ class Parser:
         self._expect_symbol("(")
         self._expect_symbol(")")
         self._expect_symbol("{")
-        body: list[PrintlnStmt] = []
+        body = []
         while not self._eat_symbol("}"):
             body.append(self._parse_stmt())
         return FunctionDecl(name=name, body=body)
 
-    def _parse_stmt(self) -> PrintlnStmt:
+    def _parse_stmt(self):
+        if self._eat_keyword("let") or self._eat_keyword("var"):
+            name = self._expect("ident").value
+            self._expect_symbol("=")
+            return LetStmt(name=name, value=self._parse_expr())
+        if self._eat_keyword("for"):
+            name = self._expect("ident").value
+            self._expect_keyword("in")
+            start = self._parse_expr()
+            self._expect_symbol("..")
+            end = self._parse_expr()
+            self._expect_symbol("{")
+            body = []
+            while not self._eat_symbol("}"):
+                body.append(self._parse_stmt())
+            return ForStmt(name=name, iterable=RangeExpr(start=start, end=end), body=body)
+
+        if self._at("ident") and self.tokens[self.index + 1].kind == "symbol" and self.tokens[self.index + 1].value == "=":
+            name = self._expect("ident").value
+            self._expect_symbol("=")
+            return AssignStmt(name=name, value=self._parse_expr())
+
         callee = self._expect("ident").value
         if callee != "println":
             raise self._error("only println(...) is supported in MVP")
@@ -59,6 +92,9 @@ class Parser:
         if token.kind == "int":
             self.index += 1
             return IntLiteral(int(token.value))
+        if token.kind == "ident":
+            self.index += 1
+            return NameExpr(token.value)
         raise self._error("expected expression")
 
     def _at(self, kind: str) -> bool:
@@ -84,6 +120,13 @@ class Parser:
             self.index += 1
             return token
         raise self._error(f"expected keyword {value!r}")
+
+    def _eat_keyword(self, value: str) -> bool:
+        token = self.tokens[self.index]
+        if token.kind == "keyword" and token.value == value:
+            self.index += 1
+            return True
+        return False
 
     def _expect(self, kind: str) -> Token:
         token = self.tokens[self.index]

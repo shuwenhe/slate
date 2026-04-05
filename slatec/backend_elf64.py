@@ -3,7 +3,19 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 
-from slatec.ast import BinaryExpr, IntLiteral, PrintlnStmt, SourceFile, StringExpr
+from slatec.ast import (
+    AssignStmt,
+    BinaryExpr,
+    ForStmt,
+    FunctionDecl,
+    IntLiteral,
+    LetStmt,
+    NameExpr,
+    PrintlnStmt,
+    RangeExpr,
+    SourceFile,
+    StringExpr,
+)
 
 
 class BackendError(Exception):
@@ -12,11 +24,7 @@ class BackendError(Exception):
 
 def build_executable(source: SourceFile, output_path: Path, workdir: Path) -> None:
     main_fn = next(fn for fn in source.functions if fn.name == "main")
-    parts: list[str] = []
-    for stmt in main_fn.body:
-        if not isinstance(stmt, PrintlnStmt):
-            raise BackendError("only println statements are supported")
-        parts.append(_eval_expr(stmt.value))
+    parts = _execute_function(main_fn)
     message = "\n".join(parts) + ("\n" if parts else "")
     asm = _emit_asm(message)
 
@@ -55,13 +63,58 @@ _start:
 """
 
 
-def _eval_expr(expr) -> str:
+def _execute_function(fn: FunctionDecl) -> list[str]:
+    env: dict[str, int | str] = {}
+    output: list[str] = []
+    for stmt in fn.body:
+        _execute_stmt(stmt, env, output)
+    return output
+
+
+def _execute_stmt(stmt, env: dict[str, int | str], output: list[str]) -> None:
+    if isinstance(stmt, PrintlnStmt):
+        output.append(_eval_expr(stmt.value, env))
+        return
+    if isinstance(stmt, LetStmt):
+        env[stmt.name] = _eval_value(stmt.value, env)
+        return
+    if isinstance(stmt, AssignStmt):
+        env[stmt.name] = _eval_value(stmt.value, env)
+        return
+    if isinstance(stmt, ForStmt):
+        start = _eval_int(stmt.iterable.start, env)
+        end = _eval_int(stmt.iterable.end, env)
+        for value in range(start, end + 1):
+            env[stmt.name] = value
+            for item in stmt.body:
+                _execute_stmt(item, env, output)
+        return
+    raise BackendError("unsupported statement")
+
+
+def _eval_expr(expr, env: dict[str, int | str]) -> str:
+    value = _eval_value(expr, env)
+    return str(value)
+
+
+def _eval_value(expr, env: dict[str, int | str]) -> int | str:
     if isinstance(expr, StringExpr):
         return expr.value
     if isinstance(expr, IntLiteral):
-        return str(expr.value)
+        return expr.value
+    if isinstance(expr, NameExpr):
+        if expr.name not in env:
+            raise BackendError(f"undefined name {expr.name}")
+        return env[expr.name]
     if isinstance(expr, BinaryExpr):
         if expr.op != "+":
             raise BackendError(f"unsupported operator {expr.op}")
-        return str(int(_eval_expr(expr.left)) + int(_eval_expr(expr.right)))
+        return _eval_int(expr.left, env) + _eval_int(expr.right, env)
     raise BackendError("unsupported expression")
+
+
+def _eval_int(expr, env: dict[str, int | str]) -> int:
+    value = _eval_value(expr, env)
+    if not isinstance(value, int):
+        raise BackendError("expected integer expression")
+    return value

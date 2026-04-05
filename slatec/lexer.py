@@ -15,8 +15,8 @@ class Token:
     column: int
 
 
-KEYWORDS = {"package", "func"}
-SYMBOLS = {"(", ")", "{", "}", ",", "+"}
+KEYWORDS = {"package", "func", "let", "var", "for", "in"}
+SYMBOLS = {"(", ")", "{", "}", ",", "+", "="}
 
 
 class Lexer:
@@ -52,6 +52,11 @@ class Lexer:
                 continue
             if ch in SYMBOLS:
                 tokens.append(Token("symbol", ch, self.line, self.column))
+                self._advance()
+                continue
+            if ch == "." and self._peek_next() == ".":
+                tokens.append(Token("symbol", "..", self.line, self.column))
+                self._advance()
                 self._advance()
                 continue
             raise LexError(f"unexpected character {ch!r} at {self.line}:{self.column}")
