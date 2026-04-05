@@ -1,7 +1,7 @@
 package main
 
 func main() {
-    let sum = 0
+    i32 sum = 0
     for i in 1..100 {
         sum = sum + i
     }

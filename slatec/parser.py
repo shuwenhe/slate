@@ -52,7 +52,7 @@ class Parser:
         if self._eat_keyword("let") or self._eat_keyword("var"):
             name = self._expect("ident").value
             self._expect_symbol("=")
-            return LetStmt(name=name, value=self._parse_expr())
+            return LetStmt(name=name, type_name=None, value=self._parse_expr())
         if self._eat_keyword("for"):
             name = self._expect("ident").value
             self._expect_keyword("in")
@@ -64,6 +64,17 @@ class Parser:
             while not self._eat_symbol("}"):
                 body.append(self._parse_stmt())
             return ForStmt(name=name, iterable=RangeExpr(start=start, end=end), body=body)
+
+        if (
+            self._at("ident")
+            and self.tokens[self.index + 1].kind == "ident"
+            and self.tokens[self.index + 2].kind == "symbol"
+            and self.tokens[self.index + 2].value == "="
+        ):
+            type_name = self._expect("ident").value
+            name = self._expect("ident").value
+            self._expect_symbol("=")
+            return LetStmt(name=name, type_name=type_name, value=self._parse_expr())
 
         if self._at("ident") and self.tokens[self.index + 1].kind == "symbol" and self.tokens[self.index + 1].value == "=":
             name = self._expect("ident").value

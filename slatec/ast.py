@@ -47,6 +47,7 @@ class PrintlnStmt(Stmt):
 @dataclass(frozen=True)
 class LetStmt(Stmt):
     name: str
+    type_name: str | None
     value: Expr
 
 
