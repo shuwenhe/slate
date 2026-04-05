@@ -12,7 +12,6 @@ from slatec.ast import (
     LetStmt,
     NameExpr,
     PrintlnStmt,
-    RangeExpr,
     SourceFile,
     StringExpr,
 )
@@ -82,12 +81,11 @@ def _execute_stmt(stmt, env: dict[str, int | str], output: list[str]) -> None:
         env[stmt.name] = _eval_value(stmt.value, env)
         return
     if isinstance(stmt, ForStmt):
-        start = _eval_int(stmt.iterable.start, env)
-        end = _eval_int(stmt.iterable.end, env)
-        for value in range(start, end + 1):
-            env[stmt.name] = value
+        _execute_stmt(stmt.init, env, output)
+        while _eval_bool(stmt.condition, env):
             for item in stmt.body:
                 _execute_stmt(item, env, output)
+            _execute_stmt(stmt.step, env, output)
         return
     raise BackendError("unsupported statement")
 
@@ -107,9 +105,11 @@ def _eval_value(expr, env: dict[str, int | str]) -> int | str:
             raise BackendError(f"undefined name {expr.name}")
         return env[expr.name]
     if isinstance(expr, BinaryExpr):
-        if expr.op != "+":
-            raise BackendError(f"unsupported operator {expr.op}")
-        return _eval_int(expr.left, env) + _eval_int(expr.right, env)
+        if expr.op == "+":
+            return _eval_int(expr.left, env) + _eval_int(expr.right, env)
+        if expr.op == "<=":
+            return _eval_int(expr.left, env) <= _eval_int(expr.right, env)
+        raise BackendError(f"unsupported operator {expr.op}")
     raise BackendError("unsupported expression")
 
 
@@ -117,4 +117,11 @@ def _eval_int(expr, env: dict[str, int | str]) -> int:
     value = _eval_value(expr, env)
     if not isinstance(value, int):
         raise BackendError("expected integer expression")
+    return value
+
+
+def _eval_bool(expr, env: dict[str, int | str]) -> bool:
+    value = _eval_value(expr, env)
+    if not isinstance(value, bool):
+        raise BackendError("expected boolean expression")
     return value

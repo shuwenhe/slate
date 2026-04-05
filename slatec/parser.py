@@ -11,7 +11,6 @@ from slatec.ast import (
     LetStmt,
     NameExpr,
     PrintlnStmt,
-    RangeExpr,
     SourceFile,
     StringExpr,
 )
@@ -54,16 +53,18 @@ class Parser:
             self._expect_symbol("=")
             return LetStmt(name=name, type_name=None, value=self._parse_expr())
         if self._eat_keyword("for"):
-            name = self._expect("ident").value
-            self._expect_keyword("in")
-            start = self._parse_expr()
-            self._expect_symbol("..")
-            end = self._parse_expr()
+            self._expect_symbol("(")
+            init = self._parse_for_init()
+            self._expect_symbol(";")
+            condition = self._parse_expr()
+            self._expect_symbol(";")
+            step = self._parse_for_step()
+            self._expect_symbol(")")
             self._expect_symbol("{")
             body = []
             while not self._eat_symbol("}"):
                 body.append(self._parse_stmt())
-            return ForStmt(name=name, iterable=RangeExpr(start=start, end=end), body=body)
+            return ForStmt(init=init, condition=condition, step=step, body=body)
 
         if (
             self._at("ident")
@@ -90,10 +91,44 @@ class Parser:
         return PrintlnStmt(value)
 
     def _parse_expr(self):
+        expr = self._parse_add_expr()
+        while self._eat_symbol("<="):
+            expr = BinaryExpr(left=expr, op="<=", right=self._parse_add_expr())
+        return expr
+
+    def _parse_add_expr(self):
         expr = self._parse_primary()
         while self._eat_symbol("+"):
             expr = BinaryExpr(left=expr, op="+", right=self._parse_primary())
         return expr
+
+    def _parse_for_init(self):
+        if self._eat_keyword("let") or self._eat_keyword("var"):
+            name = self._expect("ident").value
+            self._expect_symbol("=")
+            return LetStmt(name=name, type_name=None, value=self._parse_expr())
+        if (
+            self._at("ident")
+            and self.tokens[self.index + 1].kind == "ident"
+            and self.tokens[self.index + 2].kind == "symbol"
+            and self.tokens[self.index + 2].value == "="
+        ):
+            type_name = self._expect("ident").value
+            name = self._expect("ident").value
+            self._expect_symbol("=")
+            return LetStmt(name=name, type_name=type_name, value=self._parse_expr())
+        if self._at("ident") and self.tokens[self.index + 1].kind == "symbol" and self.tokens[self.index + 1].value == "=":
+            name = self._expect("ident").value
+            self._expect_symbol("=")
+            return AssignStmt(name=name, value=self._parse_expr())
+        raise self._error("expected for-loop initializer")
+
+    def _parse_for_step(self):
+        if self._at("ident") and self.tokens[self.index + 1].kind == "symbol" and self.tokens[self.index + 1].value == "=":
+            name = self._expect("ident").value
+            self._expect_symbol("=")
+            return AssignStmt(name=name, value=self._parse_expr())
+        raise self._error("expected for-loop step")
 
     def _parse_primary(self):
         token = self.tokens[self.index]

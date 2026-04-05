@@ -9,7 +9,6 @@ from slatec.ast import (
     LetStmt,
     NameExpr,
     PrintlnStmt,
-    RangeExpr,
     SourceFile,
     StringExpr,
 )
@@ -52,9 +51,13 @@ def _check_stmt(stmt, env: set[str]) -> None:
         _check_expr(stmt.value, env)
         return
     if isinstance(stmt, ForStmt):
-        _check_range(stmt.iterable, env)
-        body_env = set(env)
-        body_env.add(stmt.name)
+        loop_env = set(env)
+        _check_stmt(stmt.init, loop_env)
+        cond_type = _check_expr(stmt.condition, loop_env)
+        if cond_type != "bool":
+            raise SemanticError("for condition must be boolean")
+        _check_stmt(stmt.step, loop_env)
+        body_env = set(loop_env)
         for item in stmt.body:
             _check_stmt(item, body_env)
         return
@@ -73,16 +76,13 @@ def _check_expr(expr, env: set[str]) -> str:
     if isinstance(expr, BinaryExpr):
         left = _check_expr(expr.left, env)
         right = _check_expr(expr.right, env)
-        if expr.op != "+":
-            raise SemanticError(f"unsupported operator {expr.op}")
-        if left != "int" or right != "int":
-            raise SemanticError("only integer addition is supported in MVP")
-        return "int"
+        if expr.op == "+":
+            if left != "int" or right != "int":
+                raise SemanticError("only integer addition is supported in MVP")
+            return "int"
+        if expr.op == "<=":
+            if left != "int" or right != "int":
+                raise SemanticError("only integer comparison is supported in MVP")
+            return "bool"
+        raise SemanticError(f"unsupported operator {expr.op}")
     raise SemanticError("unsupported expression")
-
-
-def _check_range(expr: RangeExpr, env: set[str]) -> None:
-    left = _check_expr(expr.start, env)
-    right = _check_expr(expr.end, env)
-    if left != "int" or right != "int":
-        raise SemanticError("for range must use integer bounds")

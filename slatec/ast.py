@@ -59,8 +59,9 @@ class AssignStmt(Stmt):
 
 @dataclass(frozen=True)
 class ForStmt(Stmt):
-    name: str
-    iterable: RangeExpr
+    init: Stmt
+    condition: Expr
+    step: Stmt
     body: list[Stmt]
 
 
