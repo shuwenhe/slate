@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 
-from slatec.ast import PrintlnStmt, SourceFile
+from slatec.ast import BinaryExpr, IntLiteral, PrintlnStmt, SourceFile, StringExpr
 
 
 class BackendError(Exception):
@@ -16,7 +16,7 @@ def build_executable(source: SourceFile, output_path: Path, workdir: Path) -> No
     for stmt in main_fn.body:
         if not isinstance(stmt, PrintlnStmt):
             raise BackendError("only println statements are supported")
-        parts.append(stmt.value.value)
+        parts.append(_eval_expr(stmt.value))
     message = "\n".join(parts) + ("\n" if parts else "")
     asm = _emit_asm(message)
 
@@ -54,3 +54,14 @@ _start:
     syscall
 """
 
+
+def _eval_expr(expr) -> str:
+    if isinstance(expr, StringExpr):
+        return expr.value
+    if isinstance(expr, IntLiteral):
+        return str(expr.value)
+    if isinstance(expr, BinaryExpr):
+        if expr.op != "+":
+            raise BackendError(f"unsupported operator {expr.op}")
+        return str(int(_eval_expr(expr.left)) + int(_eval_expr(expr.right)))
+    raise BackendError("unsupported expression")

@@ -16,7 +16,7 @@ class Token:
 
 
 KEYWORDS = {"package", "func"}
-SYMBOLS = {"(", ")", "{", "}", ","}
+SYMBOLS = {"(", ")", "{", "}", ",", "+"}
 
 
 class Lexer:
@@ -44,6 +44,9 @@ class Lexer:
             if ch.isalpha() or ch == "_":
                 tokens.append(self._read_ident())
                 continue
+            if ch.isdigit():
+                tokens.append(self._read_int())
+                continue
             if ch == '"':
                 tokens.append(self._read_string())
                 continue
@@ -68,6 +71,18 @@ class Lexer:
         value = "".join(chars)
         kind = "keyword" if value in KEYWORDS else "ident"
         return Token(kind, value, line, column)
+
+    def _read_int(self) -> Token:
+        line = self.line
+        column = self.column
+        chars: list[str] = []
+        while not self._eof():
+            ch = self._peek()
+            if not ch.isdigit():
+                break
+            chars.append(ch)
+            self._advance()
+        return Token("int", "".join(chars), line, column)
 
     def _read_string(self) -> Token:
         line = self.line
@@ -110,4 +125,3 @@ class Lexer:
 
     def _eof(self) -> bool:
         return self.index >= len(self.source)
-

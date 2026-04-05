@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from slatec.ast import FunctionDecl, PrintlnStmt, SourceFile, StringLiteral
+from slatec.ast import BinaryExpr, FunctionDecl, IntLiteral, PrintlnStmt, SourceFile, StringExpr
 from slatec.lexer import Token
 
 
@@ -41,9 +41,25 @@ class Parser:
         if callee != "println":
             raise self._error("only println(...) is supported in MVP")
         self._expect_symbol("(")
-        value = self._expect("string").value
+        value = self._parse_expr()
         self._expect_symbol(")")
         return PrintlnStmt(StringLiteral(value))
+
+    def _parse_expr(self):
+        expr = self._parse_primary()
+        while self._eat_symbol("+"):
+            expr = BinaryExpr(left=expr, op="+", right=self._parse_primary())
+        return expr
+
+    def _parse_primary(self):
+        token = self.tokens[self.index]
+        if token.kind == "string":
+            self.index += 1
+            return StringExpr(token.value)
+        if token.kind == "int":
+            self.index += 1
+            return IntLiteral(int(token.value))
+        raise self._error("expected expression")
 
     def _at(self, kind: str) -> bool:
         return self.tokens[self.index].kind == kind
@@ -79,4 +95,3 @@ class Parser:
     def _error(self, message: str) -> ParseError:
         token = self.tokens[self.index]
         return ParseError(f"{message} at {token.line}:{token.column}")
-
